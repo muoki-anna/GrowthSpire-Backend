@@ -201,3 +201,37 @@ CREATE INDEX idx_blogs_published_at ON blogs(published_at);
 CREATE INDEX idx_tales_slug ON tales(slug);
 CREATE INDEX idx_payments_transaction_code ON payments(transaction_code);
 CREATE INDEX idx_packages_active ON packages(is_active);
+
+-- Routers Table
+CREATE TABLE IF NOT EXISTS routers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    ip_address VARCHAR(45) NOT NULL,
+    username VARCHAR(100),
+    password VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- Customers Table
+CREATE TABLE IF NOT EXISTS customers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    username VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    package_id CHAR(36),
+    router_id INT,
+    status ENUM('active', 'inactive', 'suspended') DEFAULT 'active',
+    next_payment_date DATE,
+    account_number VARCHAR(50) UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE SET NULL,
+    FOREIGN KEY (router_id) REFERENCES routers(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- Add indexes for customers and routers
+CREATE INDEX idx_customers_username ON customers(username);
+CREATE INDEX idx_customers_phone ON customers(phone);
+CREATE INDEX idx_customers_status ON customers(status);
+CREATE INDEX idx_routers_name ON routers(name);

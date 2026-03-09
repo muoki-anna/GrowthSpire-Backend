@@ -3,8 +3,8 @@ require_once 'db.php';
 
 header('Content-Type: application/json');
 
-$input = json_decode(file_get_contents('php://input'), true);
-$action = $input['action'] ?? '';
+$input = json_decode(file_get_contents('php://input'), true) ?? [];
+$action = $_GET['action'] ?? $input['action'] ?? '';
 
 switch ($action) {
     case 'get_faqs':

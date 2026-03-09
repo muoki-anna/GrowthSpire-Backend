@@ -3,11 +3,11 @@ require_once 'db.php';
 
 header('Content-Type: application/json');
 
-$input = json_decode(file_get_contents('php://input'), true);
-$action = $input['action'] ?? '';
-$user_id = $input['user_id'] ?? '';
+$input = json_decode(file_get_contents('php://input'), true) ?? [];
+$action = $_GET['action'] ?? $input['action'] ?? '';
+$user_id = $_GET['user_id'] ?? $input['user_id'] ?? '';
 
-if (!$user_id) {
+if (!$user_id && $_SERVER['REQUEST_METHOD'] !== 'GET' && $action !== 'get_startups') {
     echo json_encode(['success' => false, 'message' => 'User ID is required']);
     exit();
 }

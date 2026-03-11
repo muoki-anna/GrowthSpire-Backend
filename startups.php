@@ -3,98 +3,145 @@ require_once 'db.php';
 
 header('Content-Type: application/json');
 
-$input = json_decode(file_get_contents('php://input'), true) ?? [];
-$action = $_GET['action'] ?? $input['action'] ?? '';
-$user_id = $_GET['user_id'] ?? $input['user_id'] ?? '';
+/**
+ * Handle successful response
+ */
+function sendSuccess($message, $data = null)
+{
+    echo json_encode(['success' => true, 'message' => $message, 'data' => $data]);
+    exit;
+}
 
-if (!$user_id && $_SERVER['REQUEST_METHOD'] !== 'GET' && $action !== 'get_startups') {
-    echo json_encode(['success' => false, 'message' => 'User ID is required']);
-    exit();
+/**
+ * Handle error response
+ */
+function sendError($message, $code = 400)
+{
+    // http_response_code($code);
+    echo json_encode(['success' => false, 'message' => $message]);
+    exit;
+}
+
+$input = json_decode(file_get_contents('php://input'), true) ?? [];
+$action = $input['action'] ?? $_GET['action'] ?? '';
+
+if (!$action) {
+    sendError('No action specified');
 }
 
 switch ($action) {
     case 'get_startups':
         try {
             $stmt = $pdo->query("SELECT * FROM portfolio_startups ORDER BY joined_at DESC");
-            $startups = [];
-            while ($row = $stmt->fetch()) {
-                $startups[] = [
-                    'id' => $row['id'],
-                    'name' => $row['name'],
-                    'founder' => $row['founder'],
-                    'stage' => $row['stage'],
-                    'sector' => $row['category'],
-                    'status' => $row['status'],
-                    'joined' => $row['joined_at']
+            $startups = $stmt->fetchAll();
+            // Map keys if necessary for frontend compatibility
+            $formatted = array_map(function ($row) {
+                return [
+                'id' => $row['id'],
+                'name' => $row['name'],
+                'founder' => $row['founder'],
+                'stage' => $row['stage'],
+                'sector' => $row['category'],
+                'status' => $row['status'],
+                'joined' => $row['joined_at'],
+                'description' => $row['description'],
+                'website' => $row['website_url'],
+                'logo' => $row['logo_url']
                 ];
-            }
-            echo json_encode(['success' => true, 'data' => $startups]);
+            }, $startups);
+            sendSuccess('Startups retrieved', $formatted);
         }
         catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            sendError($e->getMessage());
         }
         break;
 
     case 'create_startup':
         $name = $input['name'] ?? '';
         $founder = $input['founder'] ?? '';
-        $category = $input['sector'] ?? '';
+        $category = $input['sector'] ?? $input['category'] ?? '';
 
         if (!$name || !$founder || !$category) {
-            echo json_encode(['success' => false, 'message' => 'Missing required fields']);
-            exit();
+            sendError('Missing required fields: name, founder, or sector');
         }
 
         try {
-            $stmt = $pdo->prepare("INSERT INTO portfolio_startups (id, name, slug, founder, category, joined_at) VALUES (UUID(), ?, ?, ?, ?, CURDATE())");
+            $id = bin2hex(random_bytes(16));
             $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $name)));
-            $stmt->execute([$name, $slug, $founder, $category]);
-            echo json_encode(['success' => true, 'message' => 'Startup added successfully']);
+
+            $stmt = $pdo->prepare("INSERT INTO portfolio_startups (
+                id, name, slug, founder, category, description, website_url, logo_url, stage, status, joined_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE())");
+
+            $stmt->execute([
+                $id,
+                $name,
+                $slug,
+                $founder,
+                $category,
+                $input['description'] ?? null,
+                $input['website_url'] ?? null,
+                $input['logo_url'] ?? null,
+                $input['stage'] ?? 'Idea',
+                $input['status'] ?? 'Active'
+            ]);
+
+            sendSuccess('Startup added successfully', ['id' => $id]);
         }
         catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            sendError('SQL Error: ' . $e->getMessage());
         }
         break;
 
     case 'update_startup':
         $id = $input['id'] ?? '';
-        $stage = $input['stage'] ?? '';
-        $status = $input['status'] ?? '';
-
-        if (!$id) {
-            echo json_encode(['success' => false, 'message' => 'Startup ID is required']);
-            exit();
-        }
+        if (!$id)
+            sendError('Startup ID is required');
 
         try {
-            $stmt = $pdo->prepare("UPDATE portfolio_startups SET stage = ?, status = ? WHERE id = ?");
-            $stmt->execute([$stage, $status, $id]);
-            echo json_encode(['success' => true, 'message' => 'Startup updated successfully']);
+            $fields = [];
+            $params = [];
+
+            $allowed = ['name', 'founder', 'category', 'description', 'stage', 'status', 'website_url', 'logo_url'];
+            foreach ($allowed as $key) {
+                if (isset($input[$key])) {
+                    $fields[] = "$key = ?";
+                    $params[] = $input[$key];
+                }
+            }
+
+            if (empty($fields))
+                sendError('No fields to update');
+
+            $params[] = $id;
+            $sql = "UPDATE portfolio_startups SET " . implode(', ', $fields) . " WHERE id = ?";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+
+            sendSuccess('Startup updated successfully');
         }
         catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            sendError($e->getMessage());
         }
         break;
 
     case 'delete_startup':
         $id = $input['id'] ?? '';
-        if (!$id) {
-            echo json_encode(['success' => false, 'message' => 'Startup ID is required']);
-            exit();
-        }
+        if (!$id)
+            sendError('Startup ID is required');
 
         try {
             $stmt = $pdo->prepare("DELETE FROM portfolio_startups WHERE id = ?");
             $stmt->execute([$id]);
-            echo json_encode(['success' => true, 'message' => 'Startup removed successfully']);
+            sendSuccess('Startup removed successfully');
         }
         catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            sendError($e->getMessage());
         }
         break;
 
     default:
-        echo json_encode(['success' => false, 'message' => 'Invalid action']);
+        sendError('Invalid action: ' . $action);
         break;
 }
 ?>

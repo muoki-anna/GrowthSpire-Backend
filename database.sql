@@ -202,6 +202,40 @@ CREATE INDEX idx_tales_slug ON tales(slug);
 CREATE INDEX idx_payments_transaction_code ON payments(transaction_code);
 CREATE INDEX idx_packages_active ON packages(is_active);
 
+-- Accelerator Resources Table
+CREATE TABLE IF NOT EXISTS accelerator_resources (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    resource_type VARCHAR(100), -- 'Document', 'Template', 'Video Course', etc.
+    file_format VARCHAR(50), -- 'PDF', 'XLSX', 'MP4', etc.
+    size_info VARCHAR(100), -- '2.5 MB', '15 mins', etc.
+    file_url VARCHAR(255),
+    category VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Partnership Agreements Table
+CREATE TABLE IF NOT EXISTS partnership_agreements (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    partner_name VARCHAR(255) NOT NULL,
+    partnership_type VARCHAR(100),
+    agreement_date DATE,
+    status VARCHAR(50) DEFAULT 'Active',
+    benefits TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Sponsor Funding Table
+CREATE TABLE IF NOT EXISTS sponsor_funding (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    source_name VARCHAR(255) NOT NULL,
+    amount DECIMAL(15, 2),
+    funding_date DATE,
+    method VARCHAR(100),
+    status VARCHAR(50) DEFAULT 'Received',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Routers Table
 CREATE TABLE IF NOT EXISTS routers (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -235,3 +269,43 @@ CREATE INDEX idx_customers_username ON customers(username);
 CREATE INDEX idx_customers_phone ON customers(phone);
 CREATE INDEX idx_customers_status ON customers(status);
 CREATE INDEX idx_routers_name ON routers(name);
+
+-- Accelerator Programs Table
+CREATE TABLE IF NOT EXISTS accelerator_programs (
+    id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+    name VARCHAR(255) NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    status ENUM('Upcoming', 'Active', 'Completed') DEFAULT 'Upcoming',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Mentors Table
+CREATE TABLE IF NOT EXISTS mentors (
+    id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+    name VARCHAR(255) NOT NULL,
+    role VARCHAR(255),
+    company VARCHAR(255),
+    specialties TEXT, -- Comma separated specialties
+    email VARCHAR(255),
+    linkedin_url VARCHAR(255),
+    image_url VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Accelerator Resources Table
+CREATE TABLE IF NOT EXISTS accelerator_resources (
+    id VARCHAR(36) PRIMARY KEY DEFAULT (UUID()),
+    title VARCHAR(255) NOT NULL,
+    resource_type VARCHAR(100), -- 'Document', 'Template', 'Video Course', etc.
+    file_format VARCHAR(50), -- 'PDF', 'XLSX', 'MP4', etc.
+    size_info VARCHAR(50), -- '2.5 MB', '15 mins', etc.
+    file_url VARCHAR(255),
+    category VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Default Admin User

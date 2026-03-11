@@ -3,46 +3,131 @@ require_once 'db.php';
 
 header('Content-Type: application/json');
 
+/**
+ * Handle successful response
+ */
+function sendSuccess($message, $data = null)
+{
+    echo json_encode(['success' => true, 'message' => $message, 'data' => $data]);
+    exit;
+}
+
+/**
+ * Handle error response
+ */
+function sendError($message)
+{
+    echo json_encode(['success' => false, 'message' => $message]);
+    exit;
+}
+
 $input = json_decode(file_get_contents('php://input'), true) ?? [];
-$action = $_GET['action'] ?? $input['action'] ?? '';
+$action = $input['action'] ?? $_GET['action'] ?? '';
+
+if (!$action) {
+    sendError('No action specified');
+}
 
 switch ($action) {
     case 'get_blogs':
         try {
-            $stmt = $pdo->query("SELECT * FROM blogs ORDER BY published_at DESC");
+            $stmt = $pdo->query("SELECT * FROM blogs ORDER BY created_at DESC");
             $blogs = $stmt->fetchAll();
-            echo json_encode(['success' => true, 'data' => $blogs]);
+            sendSuccess('Blogs retrieved', $blogs);
         }
         catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            sendError($e->getMessage());
         }
         break;
 
     case 'create_blog':
-        $user_id = $input['user_id'] ?? '';
-        $title = $input['title'] ?? '';
-        $content = $input['content'] ?? '';
-        $category = $input['category'] ?? '';
-
-        if (!$user_id || !$title || !$content || !$category) {
-            echo json_encode(['success' => false, 'message' => 'Missing required fields']);
-            exit();
+        $required = ['title', 'content', 'category'];
+        foreach ($required as $field) {
+            if (empty($input[$field]))
+                sendError("Missing required field: $field");
         }
 
         try {
-            $stmt = $pdo->prepare("INSERT INTO blogs (id, slug, title, content, category, author_name, published_at) VALUES (UUID(), ?, ?, ?, ?, ?, NOW())");
+            $id = bin2hex(random_bytes(16));
+            $title = $input['title'];
             $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title)));
-            // Fetch author name from user_id if needed, but for now using a placeholder
-            $stmt->execute([$slug, $title, $content, $category, 'Admin']);
-            echo json_encode(['success' => true, 'message' => 'Blog published successfully']);
+
+            $stmt = $pdo->prepare("INSERT INTO blogs (
+                id, slug, title, content, excerpt, category, author_name, image_url, published_at, read_time, featured
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)");
+
+            $stmt->execute([
+                $id,
+                $slug,
+                $title,
+                $input['content'],
+                $input['excerpt'] ?? substr(strip_tags($input['content']), 0, 160),
+                $input['category'],
+                $input['author_name'] ?? 'GrowthSpire Team',
+                $input['image_url'] ?? null,
+                $input['read_time'] ?? '5 min read',
+                $input['featured'] ?? 0
+            ]);
+
+            sendSuccess('Blog published successfully', ['id' => $id]);
         }
         catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            sendError('SQL Error: ' . $e->getMessage());
+        }
+        break;
+
+    case 'update_blog':
+        $id = $input['id'] ?? '';
+        if (!$id)
+            sendError('Blog ID required');
+
+        try {
+            $fields = [];
+            $params = [];
+            $allowed = ['title', 'content', 'excerpt', 'category', 'author_name', 'image_url', 'read_time', 'featured'];
+
+            foreach ($allowed as $key) {
+                if (isset($input[$key])) {
+                    $fields[] = "$key = ?";
+                    $params[] = $input[$key];
+                }
+            }
+
+            if (isset($input['title'])) {
+                $fields[] = "slug = ?";
+                $params[] = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $input['title'])));
+            }
+
+            if (empty($fields))
+                sendError('No fields to update');
+
+            $params[] = $id;
+            $stmt = $pdo->prepare("UPDATE blogs SET " . implode(', ', $fields) . " WHERE id = ?");
+            $stmt->execute($params);
+
+            sendSuccess('Blog updated successfully');
+        }
+        catch (Exception $e) {
+            sendError($e->getMessage());
+        }
+        break;
+
+    case 'delete_blog':
+        $id = $input['id'] ?? '';
+        if (!$id)
+            sendError('Blog ID required');
+        try {
+            $stmt = $pdo->prepare("DELETE FROM blogs WHERE id = ?");
+            $stmt->execute([$id]);
+            sendSuccess('Blog deleted');
+        }
+        catch (Exception $e) {
+            sendError($e->getMessage());
         }
         break;
 
     default:
-        echo json_encode(['success' => false, 'message' => 'Invalid action']);
+        sendError('Invalid action: ' . $action);
         break;
 }
 ?>

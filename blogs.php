@@ -40,6 +40,21 @@ switch ($action) {
         }
         break;
 
+    case 'get_blog':
+        $id = $_GET['id'] ?? $input['id'] ?? '';
+        if (!$id) sendError('Blog ID or slug required');
+        try {
+            $stmt = $pdo->prepare("SELECT * FROM blogs WHERE id = ? OR slug = ? LIMIT 1");
+            $stmt->execute([$id, $id]);
+            $blog = $stmt->fetch();
+            if (!$blog) sendError('Blog not found');
+            sendSuccess('Blog retrieved', $blog);
+        }
+        catch (Exception $e) {
+            sendError($e->getMessage());
+        }
+        break;
+
     case 'create_blog':
         $required = ['title', 'content', 'category'];
         foreach ($required as $field) {

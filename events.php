@@ -3,18 +3,36 @@ require_once 'db.php';
 
 header('Content-Type: application/json');
 
+/**
+ * Handle successful response
+ */
+function sendSuccess($message, $data = null)
+{
+    echo json_encode(['success' => true, 'message' => $message, 'data' => $data]);
+    exit;
+}
+
+/**
+ * Handle error response
+ */
+function sendError($message)
+{
+    echo json_encode(['success' => false, 'message' => $message]);
+    exit;
+}
+
 $input = json_decode(file_get_contents('php://input'), true) ?? [];
 $action = $_GET['action'] ?? $input['action'] ?? '';
 
 switch ($action) {
     case 'get_events':
         try {
-            $stmt = $pdo->query("SELECT * FROM events ORDER BY event_date ASC");
+            $stmt = $pdo->query("SELECT * FROM events ORDER BY event_date DESC");
             $events = $stmt->fetchAll();
-            echo json_encode(['success' => true, 'data' => $events]);
+            sendSuccess('Events retrieved', $events);
         }
         catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            sendError($e->getMessage());
         }
         break;
 
@@ -24,22 +42,79 @@ switch ($action) {
         $type = $input['event_type'] ?? '';
 
         if (!$title || !$date || !$type) {
-            echo json_encode(['success' => false, 'message' => 'Missing required fields']);
-            exit();
+            sendError('Missing required fields');
         }
 
         try {
-            $stmt = $pdo->prepare("INSERT INTO events (id, title, event_date, event_type) VALUES (UUID(), ?, ?, ?)");
-            $stmt->execute([$title, $date, $type]);
-            echo json_encode(['success' => true, 'message' => 'Event created successfully']);
+            $id = bin2hex(random_bytes(16));
+            $stmt = $pdo->prepare("INSERT INTO events (
+                id, title, description, event_date, start_time, end_time, location, event_type, image_url, registration_link, featured
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            
+            $stmt->execute([
+                $id,
+                $title,
+                $input['description'] ?? '',
+                $date,
+                $input['start_time'] ?? '09:00:00',
+                $input['end_time'] ?? '17:00:00',
+                $input['location'] ?? 'Online',
+                $type,
+                $input['image_url'] ?? null,
+                $input['registration_link'] ?? null,
+                $input['featured'] ?? 0
+            ]);
+            sendSuccess('Event created successfully', ['id' => $id]);
         }
         catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            sendError($e->getMessage());
+        }
+        break;
+
+    case 'update_event':
+        $id = $input['id'] ?? '';
+        if (!$id) sendError('Event ID required');
+
+        try {
+            $fields = [];
+            $params = [];
+            $allowed = ['title', 'description', 'event_date', 'start_time', 'end_time', 'location', 'event_type', 'image_url', 'registration_link', 'featured'];
+
+            foreach ($allowed as $key) {
+                if (isset($input[$key])) {
+                    $fields[] = "$key = ?";
+                    $params[] = $input[$key];
+                }
+            }
+
+            if (empty($fields)) sendError('No fields to update');
+
+            $params[] = $id;
+            $stmt = $pdo->prepare("UPDATE events SET " . implode(', ', $fields) . " WHERE id = ?");
+            $stmt->execute($params);
+
+            sendSuccess('Event updated successfully');
+        }
+        catch (Exception $e) {
+            sendError($e->getMessage());
+        }
+        break;
+
+    case 'delete_event':
+        $id = $input['id'] ?? '';
+        if (!$id) sendError('Event ID required');
+        try {
+            $stmt = $pdo->prepare("DELETE FROM events WHERE id = ?");
+            $stmt->execute([$id]);
+            sendSuccess('Event deleted');
+        }
+        catch (Exception $e) {
+            sendError($e->getMessage());
         }
         break;
 
     default:
-        echo json_encode(['success' => false, 'message' => 'Invalid action']);
+        sendError('Invalid action: ' . $action);
         break;
 }
 ?>

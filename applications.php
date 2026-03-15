@@ -22,8 +22,8 @@ function sendError($message, $code = 400)
     exit;
 }
 
-$input = json_decode(file_get_contents('php://input'), true);
-$action = $input['action'] ?? '';
+$input = json_decode(file_get_contents('php://input'), true) ?? [];
+$action = $input['action'] ?? $_GET['action'] ?? '';
 
 if (!$action) {
     sendError('No action specified');

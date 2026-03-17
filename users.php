@@ -8,17 +8,17 @@ $action = $input['action'] ?? '';
 
 switch ($action) {
     case 'login':
-        $email = $input['email'] ?? '';
+        $username = $input['username'] ?? $input['email'] ?? '';
         $password = $input['password'] ?? '';
 
-        if (!$email || !$password) {
-            echo json_encode(['success' => false, 'message' => 'Email and password are required']);
+        if (!$username || !$password) {
+            echo json_encode(['success' => false, 'message' => 'Username and password are required']);
             exit();
         }
 
         try {
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
-            $stmt->execute([$email]);
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? OR email = ?");
+            $stmt->execute([$username, $username]);
             $user = $stmt->fetch();
 
             if ($user && password_verify($password, $user['password_hash'])) {

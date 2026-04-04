@@ -1,5 +1,7 @@
 <?php
 require_once 'db.php';
+require_once 'mailer.php';
+
 
 header('Content-Type: application/json');
 
@@ -64,6 +66,24 @@ switch ($action) {
                 $input['registration_link'] ?? null,
                 $input['featured'] ?? 0
             ]);
+
+            // NOTIFY ADMIN
+            try {
+                $subject = "New Event Created: " . $title;
+                $body = "
+                    <p>A new event has been scheduled on GrowthSpire.</p>
+                    <ul>
+                        <li><strong>Title:</strong> $title</li>
+                        <li><strong>Date:</strong> $date</li>
+                        <li><strong>Type:</strong> $type</li>
+                        <li><strong>Location:</strong> " . ($input['location'] ?? 'Online') . "</li>
+                    </ul>
+                ";
+                GrowthSpireMailer::send(ADMIN_EMAIL, $subject, $body);
+            } catch (Exception $e) {
+                error_log("Event notification error: " . $e->getMessage());
+            }
+
             sendSuccess('Event created successfully', ['id' => $id]);
         }
         catch (Exception $e) {

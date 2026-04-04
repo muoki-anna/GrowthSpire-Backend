@@ -1,5 +1,7 @@
 <?php
 require_once 'db.php';
+require_once 'mailer.php';
+
 
 header('Content-Type: application/json');
 
@@ -78,6 +80,24 @@ switch ($action) {
         try {
             $stmt = $pdo->prepare("INSERT INTO mentors (id, name, role, company, specialties, email, linkedin_url) VALUES (UUID(), ?, ?, ?, ?, ?, ?)");
             $stmt->execute([$input['name'], $input['role'], $input['company'], $input['specialties'], $input['email'], $input['linkedin_url']]);
+
+            // NOTIFY MENTOR
+            try {
+                if (!empty($input['email'])) {
+                    $subject = "Welcome to GrowthSpire Network, " . $input['name'];
+                    $body = "
+                        <p>Hello " . htmlspecialchars($input['name']) . ",</p>
+                        <p>We are delighted to inform you that you have been added to the <strong>GrowthSpire Mentor Network</strong>!</p>
+                        <p>As a mentor with " . htmlspecialchars($input['company'] ?? 'GrowthSpire') . ", your expertise in <strong>" . htmlspecialchars($input['specialties'] ?? 'innovation') . "</strong> will be invaluable to the startups in our programs.</p>
+                        <p>We'll reach out soon with more details about upcoming sessions and startup pairings.</p>
+                        <p>Best regards,<br/>The GrowthSpire Team</p>
+                    ";
+                    GrowthSpireMailer::send($input['email'], $subject, $body);
+                }
+            } catch (Exception $e) {
+                error_log("Mentor notification error: " . $e->getMessage());
+            }
+
             echo json_encode(['success' => true]);
         }
         catch (Exception $e) {

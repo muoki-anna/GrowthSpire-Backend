@@ -1,5 +1,7 @@
 <?php
 require_once 'db.php';
+require_once 'mailer.php';
+
 
 header('Content-Type: application/json');
 
@@ -22,6 +24,23 @@ switch ($action) {
         try {
             $stmt = $pdo->prepare("INSERT INTO communications (id, channel_type, recipient_email, recipient_phone, subject, content, status) VALUES (UUID(), ?, ?, ?, ?, ?, 'queued')");
             $stmt->execute([$type, $email, $phone, $subject, $content]);
+
+            // ACTUALLY SEND IF IT'S EMAIL
+            if ($type === 'email' && !empty($email)) {
+                $result = GrowthSpireMailer::send($email, $subject, $content);
+                
+                if ($result['success']) {
+                    $pdo->prepare("UPDATE communications SET status = 'sent', sent_at = CURRENT_TIMESTAMP WHERE recipient_email = ? AND subject = ? AND content = ? ORDER BY created_at DESC LIMIT 1")
+                        ->execute([$email, $subject, $content]);
+                    echo json_encode(['success' => true, 'message' => 'Email sent successfully']);
+                } else {
+                    $pdo->prepare("UPDATE communications SET status = 'failed' WHERE recipient_email = ? AND subject = ? AND content = ? ORDER BY created_at DESC LIMIT 1")
+                        ->execute([$email, $subject, $content]);
+                    echo json_encode(['success' => false, 'message' => 'Failed to send email: ' . $result['error']]);
+                }
+                exit();
+            }
+
             echo json_encode(['success' => true, 'message' => 'Message queued for sending']);
         }
         catch (Exception $e) {

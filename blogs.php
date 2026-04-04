@@ -1,5 +1,7 @@
 <?php
 require_once 'db.php';
+require_once 'mailer.php';
+
 
 header('Content-Type: application/json');
 
@@ -83,6 +85,23 @@ switch ($action) {
                 $input['read_time'] ?? '5 min read',
                 $input['featured'] ?? 0
             ]);
+
+            // NOTIFY ADMIN
+            try {
+                $subject = "New Blog Posted: " . $title;
+                $body = "
+                    <p>A new blog post has been published on GrowthSpire.</p>
+                    <ul>
+                        <li><strong>Title:</strong> $title</li>
+                        <li><strong>Category:</strong> " . $input['category'] . "</li>
+                        <li><strong>Author:</strong> " . ($input['author_name'] ?? 'GrowthSpire Team') . "</li>
+                    </ul>
+                    <p>You can view it <a href='https://growthspire.org/blog/$slug'>here</a>.</p>
+                ";
+                GrowthSpireMailer::send(ADMIN_EMAIL, $subject, $body);
+            } catch (Exception $e) {
+                error_log("Blog notification error: " . $e->getMessage());
+            }
 
             sendSuccess('Blog published successfully', ['id' => $id]);
         }

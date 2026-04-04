@@ -1,5 +1,7 @@
 <?php
 require_once 'db.php';
+require_once 'mailer.php';
+
 
 header('Content-Type: application/json');
 
@@ -85,6 +87,23 @@ switch ($action) {
                 $input['stage'] ?? 'Idea',
                 $input['status'] ?? 'Active'
             ]);
+
+            // NOTIFY ADMIN
+            try {
+                $subject = "New Startup Added: " . $name;
+                $body = "
+                    <p>A new startup has been added to the GrowthSpire portfolio.</p>
+                    <ul>
+                        <li><strong>Name:</strong> " . htmlspecialchars($name) . "</li>
+                        <li><strong>Founder:</strong> " . htmlspecialchars($founder) . "</li>
+                        <li><strong>Sector:</strong> " . htmlspecialchars($category) . "</li>
+                        <li><strong>Stage:</strong> " . htmlspecialchars($input['stage'] ?? 'Idea') . "</li>
+                    </ul>
+                ";
+                GrowthSpireMailer::send(ADMIN_EMAIL, $subject, $body);
+            } catch (Exception $e) {
+                error_log("Startup notification error: " . $e->getMessage());
+            }
 
             sendSuccess('Startup added successfully', ['id' => $id]);
         }

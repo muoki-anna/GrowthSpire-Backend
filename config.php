@@ -15,6 +15,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit();
 }
 
+define('ADMIN_EMAIL', 'admin@growthspire.org'); // Set this to the actual admin email
+define('EMAIL_API_URL', 'https://api.growthspire.org/email.php');
+define('EMAIL_FROM', 'no-reply@growthspire.org');
+define('EMAIL_PASS', 'zRNZg=8s9KkHa-+2');
+define('EMAIL_NAME', 'GrowthSpire');
+
 // Error reporting (disable in production)
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
